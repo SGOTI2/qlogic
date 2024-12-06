@@ -1,0 +1,7 @@
+let x 1.4;
+let y 2;
+if x == y;
+    log "Hello True";
+else;
+    log "It's False :(";
+end;
