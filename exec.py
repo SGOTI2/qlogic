@@ -1,20 +1,23 @@
 import os.path
 from globals import *
 from execContext import ExecContext
+import module    
+
 
 filePath = os.path.join(os.path.dirname(__file__), "program.qlogic")
 
 def flattenProgram(unFlattenedProgram:list[str]):
-    returningProgram:list[tuple[str, str]] = []
+    returningProgram:list[tuple[str, any]] = []
 
     for line in unFlattenedProgram:
-        splitLine = line.strip().split()
+        splitLine:list[q_str] = line.strip().split()
         if splitLine == []: continue
         
         args = splitLine[1:]
         parsedArgs = []
         argIndex = 0
         while argIndex < len(args):
+            arg = args[argIndex]
             if args[argIndex].startswith("\""):
                 groupedArg = ""
                 while argIndex < len(args):
@@ -22,10 +25,17 @@ def flattenProgram(unFlattenedProgram:list[str]):
                     if args[argIndex].endswith("\""):
                         break
                     argIndex += 1
-                parsedArgs.append(groupedArg.removesuffix(" "))
-
+                parsedArgs.append(str(groupedArg.removesuffix("\" ").removeprefix("\"")))
+            elif arg == "true":
+                parsedArgs.append(True)
+            elif arg == "false":
+                parsedArgs.append(False)
+            elif arg.isdigit():
+                parsedArgs.append(int(arg))
+            elif isDecimal(arg):
+                parsedArgs.append(float(arg))
             else:
-                parsedArgs.append(args[argIndex])
+                parsedArgs.append(q_str(args[argIndex]))
             argIndex += 1
 
         returningProgram.append((splitLine[0], parsedArgs))
@@ -126,7 +136,7 @@ if __name__ == "__main__":
     loadProgram()
     contexts.append(ExecContext(program, "_main", 0))
     findScopes(0)
-
+    
     contexts[0].readyForJmp(-1)
     contexts[0].execContext()
 

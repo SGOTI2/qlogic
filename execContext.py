@@ -25,7 +25,7 @@ class ExecContext:
     def execContext(self):
         while not self.pauseExec:
             instruction = self.program[self.ic]
-
+            
             executableFunctions.get(instruction[0], lambda x, *a: None)(self, *instruction[1])
             self.ic += 1
 

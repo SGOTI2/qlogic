@@ -1,7 +1,16 @@
-let x 1.4;
-let y 2;
-if x == y;
-    log "Hello True";
-else;
-    log "It's False :(";
-end;
+motor:create motor1 sparkMax CAN_16 brushless;
+motor:create motor2 sparkMax CAN_2 brushed;
+
+motor:use motor1;
+motor:run 10.130%;
+
+motor:use motor2;
+motor:run 100%;
+
+pause;
+
+motor:use motor1;
+motor:stop;
+
+motor:use motor2;
+motor:stop;

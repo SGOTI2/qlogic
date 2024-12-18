@@ -2,29 +2,57 @@ import re
 program:list[tuple[str, str]] = []
 contexts = []
 
+class q_str(str):
+    def __new__(cls, content):
+        return str.__new__(cls, content)
+
+def isDecimal(s:str):
+    float_pattern = re.compile("^[0-9]*\\.[0-9]*$")
+    if float_pattern.match(s):
+        return True
+    return False
+
+class Validator:
+    @classmethod
+    def argumentRequirement(self, args, fnName: str, requirement: list[str]):
+        
+        # Good to go, AKA has enough arguments to fill the requirements
+        if len(args) >= len(requirement): 
+            return 
+
+        print("[ERROR] " + fnName + " is missing required arguments: ")
+        for i in range(len(requirement)):
+            front = str(i) # Example: [#4] 
+            front += "["
+            front += "PRESENT" if i < (len(args)) else "MISSING" # Ok if fulfilled 
+            front += "] "
+            print(front + requirement[i])
+        
+        impl_pause(None, True)
+    @classmethod
+    def toEnum(self, arg: str, enumClass, className: str = "", errorOnFail: bool = True):
+        enums = [x.lower().replace("_", "") for x in enumClass.__dict__ if not x.startswith("__")]
+        
+        try:
+            return enums.index(arg)
+        except ValueError:
+            if errorOnFail:
+                print("Failed to convert:", arg, ", to", className, "\nPossiable Types:")
+                for x in enums:
+                    print(x)
+                exit(-1) 
+            return None
+
 # Expand Variables
-def _exvar(ctx, *args):
+def exvar(ctx, *args):
     modArgs = [*args]
     argIndex = 0
     while argIndex < len(modArgs):
         arg = modArgs[argIndex]
-
-        if arg.startswith("\""):
+        
+        if not isinstance(arg, q_str): 
             argIndex += 1
             continue
-        elif arg == "true":
-            modArgs[argIndex] = True
-            argIndex += 1
-            continue
-        elif arg == "false":
-            modArgs[argIndex] = False
-            argIndex += 1
-            continue
-        elif re.match("^[\d\.]+$", arg) is not None:
-            modArgs[argIndex] = float(arg)
-            argIndex += 1
-            continue
-
 
         var = ctx.variable.get(arg, None)
         if var != None:
@@ -35,16 +63,18 @@ def _exvar(ctx, *args):
 
 def _tokenize(ctx, *args):
     argBlob = ''.join(args)
-    tokens = re.split("(&&|\\|\\||==|!=)", argBlob)
-    tokens = _exvar(ctx, *tokens)
+    tokens_ = re.split("(&&|\\|\\||==|!=)", argBlob)
+
+    tokens:list[any] = exvar(ctx, *[q_str(t) for t in tokens_])
+    print(tokens)
     return tokens
     
 
 def impl_let(ctx, *args):
-    ctx.variable[args[0]] = _exvar(ctx, *args[1:])[0]
+    ctx.variable[args[0]] = exvar(ctx, *args[1:])[0]
 
 def impl_log(ctx, *args):
-    print(*[arg.strip("\"\'") for arg in args])
+    print(*args)
 
 def impl_run(ctx, *args):
     if len(args) != 1:
@@ -96,25 +126,19 @@ def impl_return(ctx, *args):
 def to_bool(arg):
     if type(arg) is bool:
         return arg
-    elif type(arg) is str:
-        arg = arg.lower()
-        if arg == "true":
-            return True
-        elif arg == "false":
-            return False
-        else:
-            print("Not a boolean")
-            exit(0)
     elif type(arg) is float:
         return arg == 1
     
 
 def impl_logicEval(ctx, *args):
     tokens = _tokenize(ctx, *args)
-    if len(tokens) < 3:
-        if len(tokens) == 1:
-            ctx.i_var["logicVal"] = to_bool(tokens[0])
+        
+    if len(tokens) == 1:
+        ctx.i_var["logicVal"] = to_bool(tokens[0])
         return
+    if len(tokens) != 3:
+        print("Logic statements must be exactly 1 or 3 arguments")
+        exit(-1)
     term1 = tokens[0]
     op = tokens[1]
     term2 = tokens[2]
@@ -128,7 +152,18 @@ def impl_logicEval(ctx, *args):
             result = term1 == term2
         case "!=":
             result = term1 != term2
+
     ctx.i_var["logicVal"] = result
+
+def impl_pause(ctx, *args):
+    if len(args) > 0:
+        if isinstance(args[0], bool):
+            if args[0]:
+                b = input("Press enter to exit, type 'bypass' and press enter to continue anyway. ")
+                if b.lower() == "bypass":
+                    return
+                exit(0)
+    input("Press enter to continue...")
 
 executableFunctions = {
     'let': impl_let,
@@ -136,6 +171,7 @@ executableFunctions = {
     'run': impl_run,
     'return': impl_return,
     'logic': impl_logicEval,
+    'pause': impl_pause,
     '_rcif': _rcif,
     '_rcelse': _rcelse,
     '_rcelif': _rcelif
